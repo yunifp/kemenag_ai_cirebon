@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+
+// ==========================================
+// Users (Admins / Staff)
+// ==========================================
+
+model User {
+  id       String  @id @default(uuid())
+  name     String 
+  picName  String?
+  nik      String? @unique
+  position String?
+  username String  @unique
+  password String
+  email    String? @unique
+  isActive Boolean @default(true)
+
+  tickets   Ticket[] // Tickets handled by this user
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// Knowledge Base (Documents)
+// ==========================================
+
+model KnowledgeDocument {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  category    String   // e.g., "Pernikahan", "Haji", "Umum"
+  fileUrl     String?  // URL/Path to the actual file (S3/Local)
+  fileType    String?  // e.g., "pdf", "docx", "url"
+  status      String   @default("Uploading") // Uploading, Extracting, Ready, Error
+  isPublic    Boolean  @default(false) // If true, visible on Landing Page
+  metadata    Json?    // Any extra data
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  chunks      KnowledgeDocumentChunk[]
+}
+
+model KnowledgeDocumentChunk {
+  id                  String            @id @default(uuid())
+  knowledgeDocumentId String
+  document            KnowledgeDocument @relation(fields: [knowledgeDocumentId], references: [id], onDelete: Cascade)
+  content             String            @db.Text
+  embedding           Unsupported("vector(768)")?
+}
+
+// ==========================================
+// Chat & Ticketing (WhatsApp Integration)
+// ==========================================
+
+model ChatSession {
+  id             String   @id @default(uuid())
+  phoneNumber    String   @unique // User's WhatsApp number
+  userName       String?  // Name from WhatsApp profile
+  status         String   @default("BOT") // BOT (AI handling), PENDING_HANDOFF, HUMAN (CS handling)
+  botFailCount   Int      @default(0)
+  lastActivityAt DateTime @default(now())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  messages       ChatMessage[]
+  tickets        Ticket[]
+}
+
+model ChatMessage {
+  id            String   @id @default(uuid())
+  sessionId     String
+  senderType    String   // "USER" (warga), "BOT" (AI), "HUMAN" (Admin)
+  messageType   String   @default("TEXT") // TEXT, IMAGE, DOCUMENT
+  content       String   @db.Text
+  timestamp     DateTime @default(now())
+
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model Ticket {
+  id          String   @id @default(uuid())
+  sessionId   String
+  assignedToId String?
+  status      String   @default("OPEN") // OPEN, IN_PROGRESS, RESOLVED
+  topic       String?
+  createdAt   DateTime @default(now())
+  resolvedAt  DateTime?
+
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  assignedTo  User?       @relation(fields: [assignedToId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?  
+  createdAt DateTime @default(now())
+}
