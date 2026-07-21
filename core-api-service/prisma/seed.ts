@@ -20,6 +20,23 @@ async function main() {
     },
   });
 
+  // 2. Create Bot Menus (Info)
+  const menus = [
+    {
+      keyword: 'info',
+      title: 'Menu Utama',
+      response: 'Halo! Selamat datang di Layanan Informasi Kemenag Kabupaten Cirebon.\n\nKetik kata kunci berikut untuk info lebih lanjut:\n👉 *cs* (Untuk berbicara dengan petugas kami)',
+    }
+  ];
+
+  for (const menu of menus) {
+    await prisma.botMenu.upsert({
+      where: { keyword: menu.keyword },
+      update: menu,
+      create: menu,
+    });
+  }
+
   console.log('Seeding finished.');
 }
 

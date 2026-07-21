@@ -68,6 +68,7 @@ model ChatSession {
   phoneNumber    String   @unique // User's WhatsApp number
   userName       String?  // Name from WhatsApp profile
   status         String   @default("BOT") // BOT (AI handling), PENDING_HANDOFF, HUMAN (CS handling)
+  formState      String?  // null, "WAITING_NAME", "WAITING_NIK", dll
   botFailCount   Int      @default(0)
   lastActivityAt DateTime @default(now())
   createdAt      DateTime @default(now())
@@ -108,4 +109,18 @@ model Notification {
   isRead    Boolean  @default(false)
   link      String?  
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// Bot Menu (Dynamic Smart Routing)
+// ==========================================
+
+model BotMenu {
+  id        String   @id @default(uuid())
+  keyword   String   @unique
+  title     String
+  response  String   @db.Text
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

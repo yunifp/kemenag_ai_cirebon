@@ -2,6 +2,50 @@ import type { Request, Response, RequestHandler } from 'express';
 import { prisma } from '../lib/prisma';
 import { aiService } from '../services/aiService';
 
+/**
+ * Helper: Sync document category to BotMenu table
+ */
+async function syncBotMenu(category: string, fullText?: string) {
+  if (!category || category === 'Umum') return;
+  const keyword = category.toLowerCase();
+  
+  try {
+    // Generate AI FAQs if text is provided
+    let faqLines = '';
+    if (fullText) {
+      const faqs = await aiService.generateFAQs(fullText);
+      if (faqs && faqs.length > 0) {
+        faqLines = '\n\nSaran pertanyaan (balas dengan angka):\n' + faqs.map((q, i) => `*[ ${i + 1} ]* ${q}`).join('\n') + '\n*[ 0 ]* Kembali ke Menu Utama\n\nAtau ketik pertanyaan bebas Anda.';
+      }
+    }
+
+    const defaultResponse = `Anda telah memilih layanan informasi *${category}*.${faqLines || '\n\nSilakan ketik pertanyaan Anda secara lengkap (contoh: Apa syaratnya?), dan AI kami akan membacakan jawabannya dari pedoman resmi kami.'}`;
+
+    // 1. Create or update category specific menu
+    const existingMenu = await prisma.botMenu.findUnique({ where: { keyword } });
+    if (!existingMenu) {
+      await prisma.botMenu.create({
+        data: {
+          keyword,
+          title: `Layanan ${category}`,
+          response: defaultResponse,
+          isActive: true
+        }
+      });
+    } else if (faqLines !== '') {
+      // Jika menu sudah ada, update response-nya dengan FAQ terbaru
+      await prisma.botMenu.update({
+        where: { keyword },
+        data: { response: defaultResponse }
+      });
+    }
+
+    // Note: info menu update is no longer needed since it's dynamically rendered by whatsappService.
+  } catch (error) {
+    console.error('Failed to sync bot menu:', error);
+  }
+}
+
 export const getDocuments: RequestHandler = async (req: Request, res: Response): Promise<void> => {
   try {
     const docs = await prisma.knowledgeDocument.findMany({
@@ -49,6 +93,9 @@ export const uploadDocument: RequestHandler = async (req: Request, res: Response
           metadata: { chunks: aiResult.chunks, message: 'Stored in n8n/Vector DB' }
         }
       });
+      
+      // Sync Bot Menu if this has a category (Pass fullText to auto-generate FAQs)
+      await syncBotMenu(doc.category, aiResult.fullText);
       
       res.status(201).json({ message: 'Dokumen berhasil diproses dan diserap AI', data: doc });
     } catch (aiError) {
@@ -102,6 +149,9 @@ export const uploadManualText: RequestHandler = async (req: Request, res: Respon
           metadata: { chunks: aiResult.chunks, message: 'Stored in n8n/Vector DB' }
         }
       });
+      
+      // Sync Bot Menu if this has a category (Pass fullText to auto-generate FAQs)
+      await syncBotMenu(doc.category, aiResult.fullText);
       
       res.status(201).json({ message: 'Input manual berhasil diproses dan diserap AI', data: doc });
     } catch (aiError) {

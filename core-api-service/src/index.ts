@@ -14,6 +14,7 @@ import whatsappRoutes from './routes/whatsapp';
 import ticketRoutes from './routes/tickets';
 import publicRoutes from './routes/public';
 import notificationRoutes from './routes/notifications';
+import botMenuRoutes from './routes/botMenu';
 
 app.use(cors());
 app.use(express.json());
@@ -26,6 +27,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/menus', botMenuRoutes);
 
 import { waService } from './services/whatsappService';
 
